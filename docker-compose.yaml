@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16.3-alpine3.20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+  otel-collector:
+    image: jaegertracing/all-in-one:1.58.1
+    ports:
+      - "4317:4317"
+      - "16686:16686"
+  loki:
+    image: grafana/loki:3.0.1
+    ports:
+      - "3100:3100"
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+  go-grpc-server:
+    build:
+      context: .
+    ports:
+      - "8082:8082/tcp"
+    depends_on:
+      - postgres
+      - otel-collector
+      - loki
+    environment:
+      DATABASE_TYPE: postgres
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable"
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "http://loki:3100/otlp/v1/logs"
+      LOG_PROVIDER: "otlp"
+      TRACE_PROVIDER: "jaeger"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+
+volumes:
+  postgres_data:
